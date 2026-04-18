@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>دفتري PRO+</title>
+
+<style>
+:root {
+  --bg:#0d0d0d; --card:#1a1a1a; --accent:#c8a96e;
+  --green:#4caf7d; --red:#e05c5c;
+}
+body {
+  margin:0; font-family:sans-serif;
+  background:var(--bg); color:#fff;
+}
+header {
+  padding:15px;
+  background:#111;
+  display:flex;
+  justify-content:space-between;
+}
+.container { padding:10px; }
+.item {
+  background:var(--card);
+  padding:10px;
+  margin-bottom:8px;
+  border-radius:8px;
+  display:flex;
+  justify-content:space-between;
+}
+button { cursor:pointer; }
+</style>
+</head>
+
+<body>
+
+<header>
+  <div>📒 دفتري PRO+</div>
+  <input id="search" placeholder="بحث...">
+</header>
+
+<div class="container" id="list"></div>
+
+<button id="addBtn">➕ إضافة</button>
+
+<script>
+// ================= STATE =================
+const Store = (() => {
+  let state = JSON.parse(localStorage.getItem('db_v3')) || {
+    finance: []
+  };
+
+  const listeners = [];
+
+  function save() {
+    localStorage.setItem('db_v3', JSON.stringify(state));
+  }
+
+  function subscribe(fn) {
+    listeners.push(fn);
+  }
+
+  function notify() {
+    listeners.forEach(fn => fn());
+  }
+
+  return {
+    getState: () => state,
+
+    add(item) {
+      state.finance.push(item);
+      save(); notify();
+    },
+
+    delete(id) {
+      state.finance = state.finance.filter(i => i.id !== id);
+      save(); notify();
+    },
+
+    search(q) {
+      return state.finance.filter(i =>
+        i.title.toLowerCase().includes(q)
+      );
+    },
+
+    subscribe
+  };
+})();
+
+// ================= UTILS =================
+const Utils = {
+  el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text) e.textContent = text;
+    return e;
+  },
+
+  debounce(fn, d=300) {
+    let t;
+    return (...a) => {
+      clearTimeout(t);
+      t=setTimeout(()=>fn(...a),d);
+    };
+  }
+};
+
+// ================= UI =================
+const UI = (() => {
+  const list = document.getElementById('list');
+
+  function render(items) {
+    list.innerHTML = '';
+
+    if (!items.length) {
+      list.appendChild(Utils.el('div', null, 'فاضي 😴'));
+      return;
+    }
+
+    items.forEach(item => {
+      const row = Utils.el('div','item');
+
+      const title = Utils.el('div',null,item.title);
+      const amount = Utils.el('div',null,item.amount);
+
+      amount.style.color = item.type === 'income'
+        ? 'var(--green)' : 'var(--red)';
+
+      const del = Utils.el('button',null,'🗑');
+      del.addEventListener('click', () => {
+        Store.delete(item.id);
+      });
+
+      row.append(title, amount, del);
+      list.appendChild(row);
+    });
+  }
+
+  return { render };
+})();
+
+// ================= APP =================
+const App = (() => {
+  const searchInput = document.getElementById('search');
+
+  function init() {
+    Store.subscribe(update);
+    update();
+
+    searchInput.addEventListener('input',
+      Utils.debounce(update)
+    );
+
+    document.getElementById('addBtn')
+      .addEventListener('click', addRandom);
+  }
+
+  function update() {
+    const q = searchInput.value.toLowerCase();
+    const items = q
+      ? Store.search(q)
+      : Store.getState().finance;
+
+    UI.render(items);
+  }
+
+  function addRandom() {
+    const item = {
+      id: crypto.randomUUID(),
+      title: 'عملية ' + Math.floor(Math.random()*100),
+      amount: Math.floor(Math.random()*1000),
+      type: Math.random() > 0.5 ? 'income' : 'expense'
+    };
+
+    Store.add(item);
+  }
+
+  return { init };
+})();
+
+// ================= START =================
+App.init();
+</script>
+
+</body>
+</html>
